@@ -3,6 +3,8 @@ import numpy as np
 from cvxopt import matrix
 from cvxopt import solvers
 
+import os
+
 solvers.options['show_progress'] = False # quiet solver (no print)
 
 def SVM_transform_Xy_to_QP(X, y, tau):
@@ -61,3 +63,9 @@ class SVM:
         y_pred = SVM.pred(self, X)
         y_pred = np.reshape(y_pred, y.shape)
         return 1 - np.mean(np.abs(y-y_pred)/2)
+    
+    def save(self, filename):
+        np.save(filename, self.w)
+        
+    def load(self, filename):
+        self.w = np.load(filename)
