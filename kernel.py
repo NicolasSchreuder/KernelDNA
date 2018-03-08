@@ -40,3 +40,24 @@ def linear(X, Y):
     """ Linear kernel, simply the dot product K(X, Y) = (X . Y).
     """
     return np.dot(X, Y)  
+
+
+# Spectrum kernel 
+
+from collections import Counter
+
+def get_spectrum(string, k=3):
+    spectrum = [string[i:i+k] for i in range(len(string)-k+1)]
+    return spectrum
+
+def spectrum_kernel(x, y, k=3):
+    """
+    Spectrum kernel for string data
+    """
+    K_xy = 0
+    phi_x = Counter(get_spectrum(x, k))
+    phi_y = Counter(get_spectrum(y, k))
+    for key in phi_x.keys():
+        if key in phi_y.keys():
+            K_xy += phi_x[key]*phi_y[key]
+    return K_xy
