@@ -3,6 +3,7 @@ Each kernel function takes as input two arrays X,Y of sizes (nx1) and (mx1) and 
 
 import numpy as np
 from numpy.linalg import norm
+from tqdm import tqdm
 
 def rbf(X, Y, gamma='auto'):
     """ RBF t.i. kernel (radial base function), K(X, Y) = exp(- gamma * |X - Y|^2)
@@ -41,6 +42,62 @@ def linear(X, Y):
     """
     return np.dot(X, Y)  
 
+# Compute matrices and vectors for a given kernel
+
+def build_kernel_matrix(X, pd_kernel, kernel_parameters):
+    """
+    Builds kernel matrix (K(x_i, x_j))_(i,j) given numeric training data and a kernel
+    X : training data matrix (Numpy array)
+    pdf_kernel : a positive definite kernel (function)
+    """
+    n, d = X.shape
+    K = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1):
+            K[i, j] = pd_kernel(X[i, :], X[j, :], **kernel_parameters)
+            K[j, i] = K[i, j]
+    return K
+
+def build_kernel_vector(X, x, pd_kernel, kernel_parameters):
+    """
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    X : training data matrix (Numpy array)
+    x : test point
+    pdf_kernel : a positive definite kernel (function)
+    """
+    n, d = X.shape
+    K_x = np.zeros(n)
+    for i in range(n):
+        K_x[i] = pd_kernel(X[i, :], **kernel_parameters)
+    return K_x
+
+def build_kernel_vector_from_string(X, x, pd_kernel, kernel_parameters):
+    """
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    X : training data matrix (Numpy array)
+    x : test point
+    pdf_kernel : a positive definite kernel (function)
+    """
+    n = len(X)
+    K_x = np.zeros(n)
+    for i in range(n):
+        K_x[i] = pd_kernel(X[i], x, **kernel_parameters)
+    return K_x
+
+def build_kernel_matrix_from_string(X, kernel_parameters):
+    """
+    Builds kernel matrix (K(x_i, x_j))_(i,j) given string training data and a kernel
+    X : training data matrix (list of string)
+    pdf_kernel : a positive definite kernel (function)
+    """
+    n = len(X)
+    K = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1):
+            K[i, j] = pd_kernel(X[i], X[j], **kernel_parameters)
+            K[j, i] = K[i, j]
+    return K
+
 
 # Spectrum kernel 
 
@@ -61,3 +118,45 @@ def spectrum_kernel(x, y, k=3):
         if key in phi_y.keys():
             K_xy += phi_x[key]*phi_y[key]
     return K_xy
+
+def build_spectrum_kernel_matrix(X, kernel_parameters):
+    """
+    Builds kernel matrix (K(x_i, x_j))_(i,j) given string training data for spectrum kernel
+    X : training data matrix (list of string)
+    pdf_kernel : a positive definite kernel (function)
+    """
+    k = kernel_parameters['k'] # spectrum kernel parameter
+    n = len(X)
+    K = np.zeros((n, n))
+
+    spectrum = []
+    for i in range(n):
+        spectrum.append(Counter(get_spectrum(X[i], k)))
+    
+    for i in tqdm(range(n), desc='Building kernel matrix'):
+        for j in range(i+1):
+            K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
+                       for key in spectrum[i].keys() if key in spectrum[j].keys()])
+            K[j, i] = K[i, j]
+            
+    return K
+
+
+def build_spectrum_kernel_vector(X_train, x, kernel_parameters):
+    """
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    X : training data matrix (Numpy array)
+    x : test point
+    """
+    n = len(X_train)
+    k = kernel_parameters['k']
+    phi_X = []
+    for i in range(n):
+        phi_X.append(Counter(get_spectrum(X_train[i], k)))
+    K_x = np.zeros(n)
+    k = kernel_parameters['k']
+    phi = Counter(get_spectrum(x, k))
+    for i in range(n):
+        K_x[i] = sum([phi[key]*phi_X[i][key]
+                       for key in phi.keys() if key in phi_X[i].keys()])
+    return K_x
