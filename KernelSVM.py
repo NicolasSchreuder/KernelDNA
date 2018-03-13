@@ -9,12 +9,27 @@ import numpy as np
 
 class KernelSVM():
     
-    def __init__(self, lambda_reg, kernel, kernel_parameters, data_type='vector'):
+    def __init__(self, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
         self.lambda_reg = lambda_reg # regularization parameter
         self.kernel = kernel # kernel choice
         self.data_type = data_type # vector or string
         self.kernel_parameters = kernel_parameters
         self.kernel_matrix_is_built = False
+        self.threshold = threshold
+        self.verbose = verbose
+    
+    def verbprint(self,*args):
+        if self.verbose > 0:
+            print(*args)
+    
+    def verbverbprint(self,*args):
+        if self.verbose > 1:
+            print(*args)
+    
+    def get_w(self):
+        #Return w when the kernel is linear
+        w = sum(alpha * sv_y * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+        return w
         
     def fit(self, X, y):
         
@@ -55,7 +70,45 @@ class KernelSVM():
         
         # Find solution using cvxopt
         sol = solvers.qp(P=P_solver, q=q_solver, G=G_solver, h=h_solver)
-        self.alpha = np.array(sol['x'])
+        alpha = np.array(sol['x'])
+        self.alpha_old = alpha
+        
+        #Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
+        
+        self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0] #indices of the support vectors
+        #print(self.sv_ind)
+        self.alpha = alpha[self.sv_ind]
+        self.sv = X[self.sv_ind, :]
+        self.sv_y = y[self.sv_ind]
+        self.n_support = len(self.sv_ind)
+        
+        
+        b = 0
+        for n in range(self.n_support):
+            b += self.sv_y[n]
+            #b -= np.sum(self.alpha * self.sv_y * K[self.sv_ind[n], self.sv_ind])
+            b -= sum(alpha * sv_y * self.kernel(self.sv[n], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+                     
+        b = b/self.n_support
+        self.b = b
+        self.verbprint("numbers of support vectors : {}".format(self.n_support))
+        self.verbverbprint("bias: {}".format(self.b))
+    
+    def predict(self, X_test):
+        y_predict = np.zeros(len(X_test))
+        for i in range(len(X_test)):
+            y_predict[i] = sum(alpha * sv_y * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+        
+        return np.sign(y_predict + self.b)
+    
+    def predict_nob(self, X_test):
+        y_predict = np.zeros(len(X_test))
+        for i in range(len(X_test)):
+            y_predict[i] = sum(alpha * sv_y * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+        
+        return np.sign(y_predict)
+ 
+        
     
     def pred(self, X_test):
         
@@ -63,7 +116,7 @@ class KernelSVM():
             n = X_test.shape[0]
             y_pred = np.zeros(n)
             for i in range(n):
-                y_pred[i] = np.sign(np.dot(self.alpha.T, 
+                y_pred[i] = np.sign(np.dot(self.alpha_old.T, 
                                            build_kernel_vector(self.X_train, X_test[i, :], 
                                                                self.kernel, self.kernel_parameters)))
         elif self.data_type == 'string':
@@ -73,11 +126,11 @@ class KernelSVM():
             if self.kernel == spectrum_kernel:
                 for i in tqdm(range(n), desc='Predicting values'):
                 # self.phi_x corresponds to the previously computed representation of train data
-                    y_pred[i] = np.sign(np.dot(self.alpha.T, build_spectrum_kernel_vector(self.X_train, X_test[i], self.kernel_parameters)))
+                    y_pred[i] = np.sign(np.dot(self.alpha_old.T, build_spectrum_kernel_vector(self.X_train, X_test[i], self.kernel_parameters)))
                 
             else:
                 for i in range(n):
-                    y_pred[i] = np.sign(np.dot(self.alpha.T, 
+                    y_pred[i] = np.sign(np.dot(self.alpha_old.T, 
                                                build_kernel_vector_from_string(self.X_train, 
                                                                                X_test[i], self.kernel, self.kernel_parameters)))
         
