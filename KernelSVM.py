@@ -42,11 +42,12 @@ class KernelSVM():
         n = K.shape[0]
                 
         # Convert dual SVM problem to generic CVXOPT quadratic program (cf KernelSVM notebook)
-        P = 2*K
-        q = -2*y
-        G = np.concatenate([np.diag(y), -np.diag(y)], axis=0)
-        h = np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)
+        P = 2*K.astype(np.float64) 
+        q = -2*y.astype(np.float64) 
+        G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64) 
+        h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64) 
         
+        #print(P.shape, q.shape, G.shape, h.shape) 
         # Convert matrices and vectors to the right format for cvxopt solver
         # cf http://cvxopt.org/userguide/coneprog.html for solver's doc
         P_solver, q_solver = matrix(P), matrix(q)

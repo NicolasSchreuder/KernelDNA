@@ -68,7 +68,7 @@ def build_kernel_vector(X, x, pd_kernel, kernel_parameters):
     n, d = X.shape
     K_x = np.zeros(n)
     for i in range(n):
-        K_x[i] = pd_kernel(X[i, :], **kernel_parameters)
+        K_x[i] = pd_kernel(X[i, :], x, **kernel_parameters)
     return K_x
 
 def build_kernel_vector_from_string(X, x, pd_kernel, kernel_parameters):
