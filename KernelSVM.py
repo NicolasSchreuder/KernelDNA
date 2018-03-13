@@ -28,7 +28,8 @@ class KernelSVM():
     
     def get_w(self):
         #Return w when the kernel is linear
-        w = sum(alpha * sv_y * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+        #w = sum(alpha * sv_y * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+        w  = sum(alpha * 1 * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
         return w
         
     def fit(self, X, y):
@@ -87,7 +88,8 @@ class KernelSVM():
         for n in range(self.n_support):
             b += self.sv_y[n]
             #b -= np.sum(self.alpha * self.sv_y * K[self.sv_ind[n], self.sv_ind])
-            b -= sum(alpha * sv_y * self.kernel(self.sv[n], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+            #b -= sum(alpha * sv_y * self.kernel(self.sv[n], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+            b -= sum(alpha * 1 * self.kernel(self.sv[n], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
                      
         b = b/self.n_support
         self.b = b
@@ -97,7 +99,8 @@ class KernelSVM():
     def predict(self, X_test):
         y_predict = np.zeros(len(X_test))
         for i in range(len(X_test)):
-            y_predict[i] = sum(alpha * sv_y * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+            #y_predict[i] = sum(alpha * sv_y * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
+            y_predict[i] = sum(alpha * 1 * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
         
         return np.sign(y_predict + self.b)
     
