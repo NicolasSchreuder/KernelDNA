@@ -119,6 +119,17 @@ def spectrum_kernel(x, y, k=3):
             K_xy += phi_x[key]*phi_y[key]
     return K_xy
 
+from distance import hamming
+
+def mismatch_compatible(key, target_keys, m):
+    """
+    Determines if a string belongs to a set of string up to m mismatches
+    """
+    for target_key in target_keys:
+        if hamming(key, target_key) <= m:
+            return True
+    return False
+    
 def build_spectrum_kernel_matrix(X, kernel_parameters):
     """
     Builds kernel matrix (K(x_i, x_j))_(i,j) given string training data for spectrum kernel
@@ -128,16 +139,27 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
     k = kernel_parameters['k'] # spectrum kernel parameter
     n = len(X)
     K = np.zeros((n, n))
-
+    
+    # Get spectrum for each string
     spectrum = []
     for i in range(n):
-        spectrum.append(Counter(get_spectrum(X[i], k)))
+            spectrum.append(Counter(get_spectrum(X[i], k)))
     
-    for i in tqdm(range(n), desc='Building kernel matrix'):
-        for j in range(i+1):
-            K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
-                       for key in spectrum[i].keys() if key in spectrum[j].keys()])
-            K[j, i] = K[i, j]
+    if 'm' in kernel_parameters.keys(): # allow mismatch of size m
+        m = kernel_parameters['m'] # mismatch parameter
+        for i in tqdm(range(n), desc='Building kernel matrix'):
+            for j in range(i+1):
+                K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
+                           for key in spectrum[i].keys() 
+                               if mismatch_compatible(key, spectrum[j].keys(), m)])
+                K[j, i] = K[i, j]
+                
+    else: # no mismatch allowed
+        for i in tqdm(range(n), desc='Building kernel matrix'):
+            for j in range(i+1):
+                K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
+                           for key in spectrum[i].keys() if key in spectrum[j].keys()])
+                K[j, i] = K[i, j]
             
     return K
 

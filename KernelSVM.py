@@ -92,8 +92,8 @@ class KernelSVM():
                      
         b = b/self.n_support
         self.b = b
-        self.verbprint("numbers of support vectors : {}".format(self.n_support))
-        self.verbverbprint("bias: {}".format(self.b))
+        self.verbprint("Numbers of support vectors : {}".format(self.n_support))
+        self.verbverbprint("Bias: {}".format(self.b))
         
     def project(self, X_test):
         y_predict = np.zeros(len(X_test))
@@ -108,7 +108,6 @@ class KernelSVM():
         self.verbprint("  Stats about the predictions: (0 should never be predicted, labels are in {-1,+1})\n", list((k, np.sum(predictions == k)) for k in [-1, 0, +1]))
         
         return predictions
-    
     
     def pred(self, X_test):
         
