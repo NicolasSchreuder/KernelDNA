@@ -119,16 +119,8 @@ def spectrum_kernel(x, y, k=3):
             K_xy += phi_x[key]*phi_y[key]
     return K_xy
 
-from distance import hamming
 
-def mismatch_compatible(key, target_keys, m):
-    """
-    Determines if a string belongs to a set of string up to m mismatches
-    """
-    for target_key in target_keys:
-        if hamming(key, target_key) <= m:
-            return True
-    return False
+from mismatchtree import mismatchTree, inMismatchTree
     
 def build_spectrum_kernel_matrix(X, kernel_parameters):
     """
@@ -149,10 +141,14 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
         m = kernel_parameters['m'] # mismatch parameter
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
-                K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
-                           for key in spectrum[i].keys() 
-                               if mismatch_compatible(key, spectrum[j].keys(), m)])
+                K[i, j] = 0
+                for key in spectrum[i].keys() :
+                    mismatch_tree = mismatchTree(key, m)
+                    K[i, j] += sum([spectrum[i][key]*spectrum[j][mismatch_key] 
+                                   for mismatch_key in inMismatchTree(mismatch_tree, spectrum[j].keys())])
+                                   
                 K[j, i] = K[i, j]
+                
                 
     else: # no mismatch allowed
         for i in tqdm(range(n), desc='Building kernel matrix'):
