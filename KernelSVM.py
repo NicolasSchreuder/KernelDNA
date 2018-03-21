@@ -10,12 +10,15 @@ import numpy as np
 class KernelSVM():
     
     def __init__(self, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
+        """
+        Initialization of a kernel SVM
+        """
         self.lambda_reg = lambda_reg # regularization parameter
         self.kernel = kernel # kernel choice
-        self.data_type = data_type # vector or string
-        self.kernel_parameters = kernel_parameters
+        self.data_type = data_type # type of input data : vector or string
+        self.kernel_parameters = kernel_parameters # optional parameters for the kernel
         self.kernel_matrix_is_built = False
-        self.threshold = threshold
+        self.threshold = threshold # value threshold when selecting support vectors
         self.verbose = verbose
     
     def verbprint(self,*args):
@@ -27,22 +30,26 @@ class KernelSVM():
             print(*args)
     
     def get_w(self):
-        #Return w when the kernel is linear
+        "Return w (weight vector) when the kernel is linear"
         #w = sum(alpha * sv_y * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
         #w  = sum(alpha * 1 * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
         w = sum(self.alpha*self.sv)
         return w
         
     def fit(self, X, y):
-        
+        """
+        Train SVM on input features X and input target y
+        """
+
         # Save train matrix for computing kernel evaluation later
         self.X_train = X
                 
-        if not self.kernel_matrix_is_built: 
-            # Build kernel matrix
+        # Build the kernel matrix if it has not been built already
+        if not self.kernel_matrix_is_built:
+            
             if self.data_type == 'vector':
                 K = build_kernel_matrix(X, self.kernel, self.kernel_parameters)
-
+            
             elif self.data_type == 'string' :
                 if self.kernel == spectrum_kernel:
                     K = build_spectrum_kernel_matrix(X, self.kernel_parameters)
@@ -53,7 +60,7 @@ class KernelSVM():
             self.K = K
             self.kernel_matrix_is_built = True
             
-        else:
+        else: # Load kernel matrix if it has already been built
             K = self.K
         
         n = K.shape[0]
@@ -64,7 +71,6 @@ class KernelSVM():
         G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64) 
         h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64) 
         
-        #print(P.shape, q.shape, G.shape, h.shape) 
         # Convert matrices and vectors to the right format for cvxopt solver
         # cf http://cvxopt.org/userguide/coneprog.html for solver's doc
         P_solver, q_solver = matrix(P), matrix(q)
@@ -75,16 +81,15 @@ class KernelSVM():
         alpha = np.array(sol['x'])
         self.alpha_old = alpha
         
-        #Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
+        # Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
         
-        self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0] #indices of the support vectors
-        #print(self.sv_ind)
-        self.alpha = alpha[self.sv_ind]
-        self.sv = X[self.sv_ind, :]
-        self.sv_y = y[self.sv_ind]
-        self.n_support = len(self.sv_ind)
+        self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0] # indices of the support vectors
+        self.alpha = alpha[self.sv_ind] # alpha coefficients corresponding to support vectors
+        self.sv = X[self.sv_ind, :] # support vectors
+        self.sv_y = y[self.sv_ind] # target corresponding to support vectors
+        self.n_support = len(self.sv_ind) # number of support vectors
         
-        #Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
+        # Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
         b = 0
         for n in range(self.n_support):
             b += self.sv_y[n]
@@ -96,9 +101,13 @@ class KernelSVM():
         self.verbverbprint("Bias: {}".format(self.b))
         
     def project(self, X_test):
+        """
+        ?
+        """
         y_predict = np.zeros(len(X_test))
         for i in range(len(X_test)):
-            y_predict[i] = sum(alpha * self.kernel(X_test[i], sv,**self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
+            y_predict[i] = sum(alpha * self.kernel(X_test[i], sv,**self.kernel_parameters) 
+                               for alpha, sv in zip(self.alpha, self.sv))
         
         return y_predict + self.b
     

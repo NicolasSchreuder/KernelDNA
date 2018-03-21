@@ -38,7 +38,7 @@ def poly(X, Y, degree=3, coef0=1):
     return (np.dot(X, Y) + coef0) ** degree
 
 def linear(X, Y):
-    """ Linear kernel, simply the dot product K(X, Y) = (X . Y).
+    """ Linear kernel : dot product K(X, Y) = (X^T) Y
     """
     return np.dot(X, Y)  
 
@@ -136,25 +136,37 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
     spectrum = []
     for i in range(n):
             spectrum.append(Counter(get_spectrum(X[i], k)))
+        
+    mismatch_trees = {}
+    in_mismatch_trees = {}    
     
     if 'm' in kernel_parameters.keys(): # allow mismatch of size m
-        m = kernel_parameters['m'] # mismatch parameter
+        m = kernel_parameters['m'] # mismatch parameters
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
-                K[i, j] = 0
-                for key in spectrum[i].keys() :
-                    mismatch_tree = mismatchTree(key, m)
-                    K[i, j] += sum([spectrum[i][key]*spectrum[j][mismatch_key] 
-                                   for mismatch_key in inMismatchTree(mismatch_tree, spectrum[j].keys())])
-                                   
-                K[j, i] = K[i, j]
+                for key in spectrum[i]:
+                    
+                    # check if mismatch tree has already been computed
+                    # if not, it is computed and stored inside the dictionary
+                    if key not in mismatch_trees:
+                        mismatch_trees[key] = mismatchTree(key, m)
+                                        
+                    # Check if correspondence between mismatch tree 
+                    # and list of keys has already been computed
+                    if (j, key) not in in_mismatch_trees:
+                        in_mismatch_trees[j, key] = inMismatchTree(mismatch_trees[key], spectrum[j])
+                    
+                    K[i, j] = spectrum[i][key] * sum([spectrum[j][mismatch_key] 
+                                  for mismatch_key in in_mismatch_trees[j, key]])
+                                                
+                K[j, i] = K[i, j] # symmetric matrix
                 
                 
     else: # no mismatch allowed
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
                 K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
-                           for key in spectrum[i].keys() if key in spectrum[j].keys()])
+                           for key in spectrum[i] if key in spectrum[j]])
                 K[j, i] = K[i, j]
             
     return K
