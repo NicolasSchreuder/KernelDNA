@@ -156,7 +156,7 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
                     if (j, key) not in in_mismatch_trees:
                         in_mismatch_trees[j, key] = inMismatchTree(mismatch_trees[key], spectrum[j])
                     
-                    K[i, j] = spectrum[i][key] * sum([spectrum[j][mismatch_key] 
+                    K[i, j] += spectrum[i][key] * sum([spectrum[j][mismatch_key] 
                                   for mismatch_key in in_mismatch_trees[j, key]])
                                                 
                 K[j, i] = K[i, j] # symmetric matrix

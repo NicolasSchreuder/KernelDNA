@@ -40,6 +40,7 @@ class KernelSVM():
         """
         Train SVM on input features X and input target y
         """
+        X=np.array(X)
 
         # Save train matrix for computing kernel evaluation later
         self.X_train = X
@@ -83,15 +84,16 @@ class KernelSVM():
         
         # Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
         
-        self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0] # indices of the support vectors
+        self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0].astype(int) # indices of the support vectors
+        print(self.sv_ind)
         self.alpha = alpha[self.sv_ind] # alpha coefficients corresponding to support vectors
-        self.sv = X[self.sv_ind, :] # support vectors
+        self.sv = X[self.sv_ind][:] # support vectors
         self.sv_y = y[self.sv_ind] # target corresponding to support vectors
         self.n_support = len(self.sv_ind) # number of support vectors
         
         # Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
         b = 0
-        for n in range(self.n_support):
+        for n in range(min(self.n_support,100)):
             b += self.sv_y[n]
             b -= sum(alpha * self.kernel(self.sv[n], sv,**self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
                      
