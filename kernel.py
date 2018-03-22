@@ -40,7 +40,7 @@ def poly(X, Y, degree=3, coef0=1):
 def linear(X, Y):
     """ Linear kernel : dot product K(X, Y) = (X^T) Y
     """
-    return np.dot(X, Y)  
+    return np.dot(X, Y)
 
 # Compute matrices and vectors for a given kernel
 
@@ -60,7 +60,7 @@ def build_kernel_matrix(X, pd_kernel, kernel_parameters):
 
 def build_kernel_vector(X, x, pd_kernel, kernel_parameters):
     """
-    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data
     X : training data matrix (Numpy array)
     x : test point
     pdf_kernel : a positive definite kernel (function)
@@ -73,7 +73,7 @@ def build_kernel_vector(X, x, pd_kernel, kernel_parameters):
 
 def build_kernel_vector_from_string(X, x, pd_kernel, kernel_parameters):
     """
-    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data
     X : training data matrix (Numpy array)
     x : test point
     pdf_kernel : a positive definite kernel (function)
@@ -99,7 +99,7 @@ def build_kernel_matrix_from_string(X, kernel_parameters):
     return K
 
 
-# Spectrum kernel 
+# Spectrum kernel
 
 from collections import Counter
 
@@ -107,10 +107,11 @@ def get_spectrum(string, k=3):
     spectrum = [string[i:i+k] for i in range(len(string)-k+1)]
     return spectrum
 
-def spectrum_kernel(x, y, k=3):
+def spectrum_kernel(x, y, kernel_parameters):
     """
     Spectrum kernel for string data
     """
+    k = kernel_parameters['k']
     K_xy = 0
     phi_x = Counter(get_spectrum(x, k))
     phi_y = Counter(get_spectrum(y, k))
@@ -121,7 +122,7 @@ def spectrum_kernel(x, y, k=3):
 
 
 from mismatchtree import mismatchTree, inMismatchTree
-    
+
 def build_spectrum_kernel_matrix(X, kernel_parameters):
     """
     Builds kernel matrix (K(x_i, x_j))_(i,j) given string training data for spectrum kernel
@@ -131,50 +132,49 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
     k = kernel_parameters['k'] # spectrum kernel parameter
     n = len(X)
     K = np.zeros((n, n))
-    
+
     # Get spectrum for each string
     spectrum = []
     for i in range(n):
             spectrum.append(Counter(get_spectrum(X[i], k)))
-        
+
     mismatch_trees = {}
-    in_mismatch_trees = {}    
-    
+    in_mismatch_trees = {}
+
     if 'm' in kernel_parameters.keys(): # allow mismatch of size m
         m = kernel_parameters['m'] # mismatch parameters
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
                 for key in spectrum[i]:
-                    
+
                     # check if mismatch tree has already been computed
                     # if not, it is computed and stored inside the dictionary
                     if key not in mismatch_trees:
                         mismatch_trees[key] = mismatchTree(key, m)
-                                        
-                    # Check if correspondence between mismatch tree 
+
+                    # Check if correspondence between mismatch tree
                     # and list of keys has already been computed
                     if (j, key) not in in_mismatch_trees:
                         in_mismatch_trees[j, key] = inMismatchTree(mismatch_trees[key], spectrum[j])
-                    
-                    K[i, j] += spectrum[i][key] * sum([spectrum[j][mismatch_key] 
+
+                    K[i, j] += spectrum[i][key] * sum([spectrum[j][mismatch_key]
                                   for mismatch_key in in_mismatch_trees[j, key]])
-                                                
+
                 K[j, i] = K[i, j] # symmetric matrix
-                
-                
+
     else: # no mismatch allowed
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
                 K[i, j] = sum([spectrum[i][key]*spectrum[j][key]
                            for key in spectrum[i] if key in spectrum[j]])
                 K[j, i] = K[i, j]
-            
+
     return K
 
 
 def build_spectrum_kernel_vector(X_train, x, kernel_parameters):
     """
-    Builds kernel vector (K(x, x_i))_i for a given vector x and training data 
+    Builds kernel vector (K(x, x_i))_i for a given vector x and training data
     X : training data matrix (Numpy array)
     x : test point
     """
