@@ -95,7 +95,7 @@ class KernelSVM():
         b = 0
         for n in range(min(self.n_support,100)):
             b += self.sv_y[n]
-            b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
+            b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
 
         b = b/self.n_support
         self.b = b

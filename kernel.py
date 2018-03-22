@@ -4,6 +4,7 @@ Each kernel function takes as input two arrays X,Y of sizes (nx1) and (mx1) and 
 import numpy as np
 from numpy.linalg import norm
 from tqdm import tqdm
+from utils import *
 
 def rbf(X, Y, gamma='auto'):
     """ RBF t.i. kernel (radial base function), K(X, Y) = exp(- gamma * |X - Y|^2)
@@ -193,3 +194,56 @@ def build_spectrum_kernel_vector(X_train, x, kernel_parameters):
         K_x[i] = sum([phi[key]*phi_X[i][key]
                        for key in phi.keys() if key in phi_X[i].keys()])
     return K_x
+
+
+#### Kitchen Sinks
+
+def get_k_grams(x, k, alpha_size=4):
+    outsize = int(x.shape[0]/alpha_size - k + 1)
+    kgrams = np.zeros((outsize, int(k*alpha_size)))
+    for i in range(outsize):
+        kgrams[i] = x[i*alpha_size:(i+k)*alpha_size]
+    return kgrams
+
+def compute_conv_features(X, W, b, alpha_size=4):
+    """Input : 
+            X : should be the ouput of sequence_to_matrix(X_raw), size (num_samples, 4*d = n)
+            W :  Array of Gaussian vectors of size (M,4*k), W_ij should be drawn iid N(O,gamma)
+            b : vector of size M, should be drawn uniformly on [0,2Pi]
+        Output :
+            Matrix of feature vectors : (num_samples,M)
+          """
+    num_samples = X.shape[0]
+    d = int(X.shape[-1]/4)
+    M = W.shape[0]   
+    k = int(W.shape[-1]/4)     
+    X_lift = np.zeros((num_samples, M)) 
+    scale = np.sqrt(2/float(W.shape[0])) 
+    for i in range(X.shape[0]):
+        #if (i % 100 == 0):
+            #print(i, "convulutions computed")
+        kgrams = get_k_grams(X[i,:], k, alpha_size) #size (d-k+1, 4k)
+        xlift_conv = np.cos(np.dot(kgrams, W.T) + b) #size (d-k+1, M)
+        X_lift[i] = scale*np.sum(xlift_conv, axis=0)
+
+    return X_lift
+
+def phi_sink(X_raw, k, gamma, M, alpha_size=4):
+    X = sequence_to_matrix(X_raw)
+    W = gamma*np.random.randn(M,4*k)
+    b = (2*np.pi)*np.random.rand(M)
+    
+    X_lift = compute_conv_features(X, W, b, alpha_size = alpha_size)
+
+    return X_lift
+
+
+
+if __name__ == "__main__":
+    M= 50
+    n = 4*12
+
+    X = np.random.randn(200,4*12)
+    W = np.random.randn(M,8*4)
+    b = np.ones(M)
+    X_lift = conv(X,W,b)
