@@ -72,8 +72,6 @@ class KernelSVM():
         G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64)
         h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64)
 
-        print(np.linalg.eig(P))
-
         # Convert matrices and vectors to the right format for cvxopt solver
         # cf http://cvxopt.org/userguide/coneprog.html for solver's doc
         P_solver, q_solver = matrix(P), matrix(q)

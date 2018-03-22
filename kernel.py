@@ -150,7 +150,7 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
                     # check if mismatch tree has already been computed
                     # if not, it is computed and stored inside the dictionary
                     if key not in mismatch_trees:
-                        mismatch_trees[key] = mismatchTree(key, m)
+                        mismatch_trees[key] = mismatchTree(key, m+1)
 
                     # Check if correspondence between mismatch tree
                     # and list of keys has already been computed
@@ -159,9 +159,12 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
 
                     K[i, j] += spectrum[i][key] * sum([spectrum[j][mismatch_key]
                                   for mismatch_key in in_mismatch_trees[j, key]])
-
+    
                 K[j, i] = K[i, j] # symmetric matrix
-
+                    
+                if i==j:
+                    K[i, i] *= 48 
+                        
     else: # no mismatch allowed
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
