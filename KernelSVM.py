@@ -10,7 +10,7 @@ import numpy as np
 
 class KernelSVM():
 
-    def __init__(self, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
+    def __init__(self, loss, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
         """
         Initialization of a kernel SVM
         """
@@ -21,6 +21,7 @@ class KernelSVM():
         self.kernel_matrix_is_built = False
         self.threshold = threshold # value threshold when selecting support vectors
         self.verbose = verbose
+        self.loss = loss
 
     def verbprint(self,*args):
         if self.verbose > 0:
@@ -68,10 +69,19 @@ class KernelSVM():
         n = K.shape[0]
 
         # Convert dual SVM problem to generic CVXOPT quadratic program (cf KernelSVM notebook)
-        P = 2*K.astype(np.float64)
-        q = -2*y.astype(np.float64)
-        G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64)
-        h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64)
+        if self.loss == 'hinge': # hinge loss : max(1-yf(x), 0)
+            P = 2*K.astype(np.float64)
+            q = -2*y.astype(np.float64)
+            G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64)
+            h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64)
+        elif self.loss == 'squared_hinge': # squared hinge loss : max(1-yf(x), 0)**2
+            P = 2*(K + n*self.lambda_reg*np.eye(n)).astype(np.float64)
+            q = -2*y.astype(np.float64)
+            G =  -np.diag(y).astype(np.float64)
+            h =  np.zeros(n).astype(np.float64)
+
+        else:
+            raise "{} loss not implemented".format(loss)
 
         # Convert matrices and vectors to the right format for cvxopt solver
         # cf http://cvxopt.org/userguide/coneprog.html for solver's doc
@@ -99,7 +109,7 @@ class KernelSVM():
 
         b = b/min(self.n_support,100)
         self.b = b
-        
+
         if self.verbose:
             self.verbprint("Numbers of support vectors : {}".format(self.n_support))
             self.verbverbprint("Bias: {}".format(self.b))
