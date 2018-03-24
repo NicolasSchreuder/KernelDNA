@@ -1,5 +1,6 @@
 from cvxopt import matrix
 from cvxopt import solvers
+solvers.options['show_progress'] = False
 
 from kernel import build_kernel_vector, build_kernel_matrix, build_kernel_matrix_from_string, build_kernel_vector_from_string, spectrum_kernel, build_spectrum_kernel_matrix, build_spectrum_kernel_vector
 
@@ -85,7 +86,6 @@ class KernelSVM():
         # Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
 
         self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0].astype(int) # indices of the support vectors
-        print(self.sv_ind)
         self.alpha = alpha[self.sv_ind] # alpha coefficients corresponding to support vectors
         self.sv = X[self.sv_ind][:] # support vectors
         self.sv_y = y[self.sv_ind] # target corresponding to support vectors
@@ -99,8 +99,10 @@ class KernelSVM():
 
         b = b/self.n_support
         self.b = b
-        self.verbprint("Numbers of support vectors : {}".format(self.n_support))
-        self.verbverbprint("Bias: {}".format(self.b))
+        
+        if self.verbose:
+            self.verbprint("Numbers of support vectors : {}".format(self.n_support))
+            self.verbverbprint("Bias: {}".format(self.b))
 
     def project(self, X_test):
         """
