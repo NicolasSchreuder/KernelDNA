@@ -116,7 +116,8 @@ class KernelSVM():
         #b = b/min(self.n_support,100)
         #self.b = b
         
-
+        w = sum(self.alpha*self.sv)
+        self.w, self.bias = w[:-1], w[-1]
         if self.verbose:
             self.verbprint("Numbers of support vectors : {}".format(self.n_support))
             self.verbverbprint("Bias: {}".format(self.b))
