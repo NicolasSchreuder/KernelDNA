@@ -10,7 +10,7 @@ import numpy as np
 
 class KernelSVM():
 
-    def __init__(self, loss, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
+    def __init__(self, loss, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-4, verbose = 0):
         """
         Initialization of a kernel SVM
         """
@@ -103,21 +103,51 @@ class KernelSVM():
         self.sv = X[self.sv_ind][:] # support vectors
         self.sv_y = y[self.sv_ind] # target corresponding to support vectors
         self.n_support = len(self.sv_ind) # number of support vectors
-
-        # Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
-        #b = 0
-        #for n in range(min(self.n_support,100)):
-        #    b += self.sv_y[n]
-        #    if self.data_type=='string':
-        #        b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
-        #    else:
-        #        b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
-
-        #b = b/min(self.n_support,100)
-        #self.b = b
         
-        w = sum(self.alpha*self.sv)
-        self.w, self.bias = w[:-1], w[-1]
+        self.margin_ind = np.where( (np.abs(alpha) > self.threshold) & (np.abs(alpha) < 1/(2*n*self.lambda_reg) -self.threshold ) )[0].astype(int)
+        n_margin = len(self.margin_ind)
+        print("nombre de vecteurs a la marge : {}".format(n_margin))
+        self.alpha_margin = alpha[self.margin_ind] # alpha coefficients corresponding to support vectors
+        self.sv_margin = X[self.margin_ind][:] # support vectors
+        self.sv_y_margin = y[self.margin_ind]
+
+        #Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
+        C = 1/(2*n*self.lambda_reg)
+        candidates_plus = [np.abs(alpha[i]-C/2) for i in range(len(alpha))]
+        index_plus = np.argmin(candidates_plus)
+        candidates_minus = [np.abs(alpha[i]+C/2) for i in range(len(alpha))]
+        index_minus = np.argmin(candidates_minus)
+        
+        sv_plus= X[index_plus][:]
+        sv_minus = X[index_minus][:]
+        
+        scale = 0.5*np.sqrt(np.dot(alpha.T,np.dot(self.K,alpha))).reshape(1)
+        #print("scale shape : {}".format(scale.shape))
+        pred_plus = sum(alpha * self.kernel(sv_plus, sv,self.kernel_parameters)
+                               for alpha, sv in zip(self.alpha, self.sv))
+        pred_minus = sum(alpha * self.kernel(sv_minus, sv,self.kernel_parameters)
+                               for alpha, sv in zip(self.alpha, self.sv))
+        #print(pred_plus.shape)      
+        
+        b = -scale*(pred_plus + pred_minus).reshape(1)
+        """
+        b = 0
+        for n in range(min(n_margin,100)):
+            b += self.sv_y_margin[n]
+            if self.data_type=='string':
+                b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha_margin, self.sv_margin))
+            else:
+                b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha_margin, self.sv_margin))
+
+        b = b/min(n_margin,100)
+        """
+        
+        #b = np.sum(self.sv_y_margin)/n
+        self.b_margin = b
+        
+        if self.data_type == 'vector':
+            w = sum(self.alpha*self.sv)
+            self.w, self.bias = w[:-1], w[-1]
         if self.verbose:
             self.verbprint("Numbers of support vectors : {}".format(self.n_support))
             self.verbverbprint("Bias: {}".format(self.b))
@@ -143,6 +173,15 @@ class KernelSVM():
         self.verbprint("  Stats about the predictions: (0 should never be predicted, labels are in {-1,+1})\n", list((k, np.sum(predictions == k)) for k in [-1, 0, +1]))
 
         return predictions
+    def predict2(self,X_test):
+        y_predict = np.zeros(len(X_test))
+        for i in range(len(X_test)):
+            y_predict[i] = sum(alpha * self.kernel(X_test[i], sv,self.kernel_parameters)
+                               for alpha, sv in zip(self.alpha, self.sv))
+
+        #return y_predict + self.b
+        return np.sign(y_predict +self.b_margin)
+        
 
     def pred(self, X_test):
  
