@@ -42,8 +42,13 @@ class KernelSVM():
         """
         Train SVM on input features X and input target y
         """
-        X=np.array(X)
-
+        X = np.array(X)
+        
+        n = X.shape[0]
+        
+        if self.data_type=='vector': # bias
+            X = np.concatenate((X, np.ones((n,1))), axis=1)
+        
         # Save train matrix for computing kernel evaluation later
         self.X_train = X
 
@@ -65,8 +70,6 @@ class KernelSVM():
 
         else: # Load kernel matrix if it has already been built
             K = self.K
-
-        n = K.shape[0]
 
         # Convert dual SVM problem to generic CVXOPT quadratic program (cf KernelSVM notebook)
         if self.loss == 'hinge': # hinge loss : max(1-yf(x), 0)
@@ -102,16 +105,17 @@ class KernelSVM():
         self.n_support = len(self.sv_ind) # number of support vectors
 
         # Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
-        b = 0
-        for n in range(min(self.n_support,100)):
-            b += self.sv_y[n]
-            if self.data_type=='string':
-                b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
-            else:
-                b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
+        #b = 0
+        #for n in range(min(self.n_support,100)):
+        #    b += self.sv_y[n]
+        #    if self.data_type=='string':
+        #        b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
+        #    else:
+        #        b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
 
-        b = b/min(self.n_support,100)
-        self.b = b
+        #b = b/min(self.n_support,100)
+        #self.b = b
+        
 
         if self.verbose:
             self.verbprint("Numbers of support vectors : {}".format(self.n_support))
@@ -126,9 +130,13 @@ class KernelSVM():
             y_predict[i] = sum(alpha * self.kernel(X_test[i], sv,**self.kernel_parameters)
                                for alpha, sv in zip(self.alpha, self.sv))
 
-        return y_predict + self.b
+        #return y_predict + self.b
+        return y_predict
 
     def predict(self, X_test):
+        n = X_test.shape[0]
+        X_test = np.concatenate((X_test, np.ones((n,1))), axis=1) # add one dimension
+        
         self.verbprint("  Predicting on a BinarySVC for data X_test of shape {} ...".format(np.shape(X_test)))
         predictions = np.sign(self.project(X_test))
         self.verbprint("  Stats about the predictions: (0 should never be predicted, labels are in {-1,+1})\n", list((k, np.sum(predictions == k)) for k in [-1, 0, +1]))
@@ -136,9 +144,10 @@ class KernelSVM():
         return predictions
 
     def pred(self, X_test):
-
+ 
         if self.data_type == 'vector':
             n = X_test.shape[0]
+            X_test = np.concatenate((X_test, np.ones((n,1))), axis=1)
             y_pred = np.zeros(n)
             for i in range(n):
                 y_pred[i] = np.sign(np.dot(self.alpha_old.T,
