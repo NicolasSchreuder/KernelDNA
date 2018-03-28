@@ -1,42 +1,10 @@
-"""Manual Implementation of various kernels for euclidean datas (i.e vectors)
-Each kernel function takes as input two arrays X,Y of sizes (nx1) and (mx1) and outputs the Kernel Matrix Kxy = K(X,Y) of size (nxm)"""
+"""Manual Implementation of various kernels for Euclidean datas (i.e vectors)
+Each kernel function takes as input two arrays X,Y of sizes (nx1) and (mx1) and outputs the Kernel Matrix Kxy = K(X,Y) of size (nxn)"""
 
 import numpy as np
 from numpy.linalg import norm
 from tqdm import tqdm
-from utils import *
-
-def rbf(X, Y, gamma='auto'):
-    """ RBF t.i. kernel (radial base function), K(X, Y) = exp(- gamma * |X - Y|^2)
-
-    - Give gamma = 'auto' or gamma = 0 to select gamma as 1 / n_features.
-    """
-    if gamma == 'auto' or gamma == 0:
-        n_features = np.shape(X)[1] if len(np.shape(X)) > 1 else 1
-        gamma = 1 / n_features
-    assert gamma > 0, "[ERROR] kernels.rbf: using a gamma < 0 will not do what you want."
-    return np.exp(- gamma * norm(X - Y)**2)
-
-def laplace(X, Y, gamma='auto'):
-    """ Laplace t.i. kernel, K(X, Y) = exp(- |X - Y| / gamma).
-
-    - Give gamma = 'auto' or gamma = 0 to select gamma as 1 / n_features.
-    """
-    if gamma == 'auto' or gamma == 0:
-        n_features = np.shape(X)[1] if len(np.shape(X)) > 1 else 1
-        gamma = 1 / n_features
-    assert gamma > 0, "[ERROR] kernels.laplace: using a gamma < 0 will not do what you want."
-    return np.exp(- gamma * norm(X - Y))
-
-def poly(X, Y, degree=3, coef0=1):
-    """ Parametrized version of the polynomial kernel, K(X, Y) = (X . Y + coef0)^degree.
-
-    - Default coef0 is 1.
-    - Default degree is 3. Computation time is CONSTANT with d, but that's not a reason to try huge values. degree = 2,3,4,5 should be enough.
-    - Using degree = 1 is giving a (possibly) non-homogeneous linear kernel.
-    """
-    assert degree > 0, "[ERROR] kernels.poly: using a degree < 0 will fail (the kernel is not p.d.)."
-    return (np.dot(X, Y) + coef0) ** degree
+from onehotdna import sequence_to_matrix
 
 def linear(X, Y):
     """ Linear kernel : dot product K(X, Y) = (X^T) Y
@@ -105,20 +73,27 @@ def build_kernel_matrix_from_string(X, kernel_parameters):
 from collections import Counter
 
 def get_spectrum(string, k=3):
+    """
+    Returns k-spectrum for a given string
+    """
     spectrum = [string[i:i+k] for i in range(len(string)-k+1)]
     return spectrum
 
 def spectrum_kernel(x, y, kernel_parameters):
     """
-    Spectrum kernel for string data
+    k-spectrum kernel evaluation between string x and y
     """
     k = kernel_parameters['k']
     K_xy = 0
+    
+    # We store the spectrum as Counter dictionaries for efficient computing
     phi_x = Counter(get_spectrum(x, k))
     phi_y = Counter(get_spectrum(y, k))
+    
     for key in phi_x.keys():
         if key in phi_y.keys():
             K_xy += phi_x[key]*phi_y[key]
+            
     return K_xy
 
 
@@ -162,10 +137,7 @@ def build_spectrum_kernel_matrix(X, kernel_parameters):
                                   for mismatch_key in in_mismatch_trees[j, key]])
     
                 K[j, i] = K[i, j] # symmetric matrix
-                    
-                if i==j:
-                    K[i, i] *= 48 
-                        
+                                            
     else: # no mismatch allowed
         for i in tqdm(range(n), desc='Building kernel matrix'):
             for j in range(i+1):
@@ -184,12 +156,17 @@ def build_spectrum_kernel_vector(X_train, x, kernel_parameters):
     """
     n = len(X_train)
     k = kernel_parameters['k']
+    
+    # Compute k-spectrum on training data
     phi_X = []
     for i in range(n):
         phi_X.append(Counter(get_spectrum(X_train[i], k)))
-    K_x = np.zeros(n)
-    k = kernel_parameters['k']
+    
+    # Compute k-spectrum on test point
     phi = Counter(get_spectrum(x, k))
+    
+    # Build kernel vector for test point
+    K_x = np.zeros(n)
     for i in range(n):
         K_x[i] = sum([phi[key]*phi_X[i][key]
                        for key in phi.keys() if key in phi_X[i].keys()])

@@ -1,3 +1,7 @@
+"""
+This script contains functions designed to compute mismatch tree between strings
+"""
+
 def mismatchTree(s, k):
     """
     Recursive function to build mismatch tree for a string s up to k mismatches
@@ -27,8 +31,7 @@ def isInMismatchTree(mismatch_tree, s):
     compt = 0
     
     for letter in s:
-        #if isinstance(current_sub_tree, list): # i.e. we attained a set of leaves
-        if compt == n:
+        if compt == n: # i.e. we have browsed the whole tree and atteined a leaf
             return letter in current_sub_tree
         else: # i.e. inner node
             compt += 1

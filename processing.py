@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 
 def train_test_split(X, y, test_size=0.3, random_state=42):
-    
+    """
+    Splits training matrix X and target vector y in training and test set
+    """
     np.random.seed(random_state) # for reproducibility
     
     n, d = X.shape
