@@ -15,11 +15,12 @@ Python script, contains function to load data and process data
 
 - kernel.py
 Python script, contains functions to compute kernel evaluations and kernel matrices
-#### reste à cleaner kitchen sink
 
+- KernelSVM.py
+Python script, our implementation of kernel SVM
 
 To clean :
-- KernelSVM.py
+
 - Raw_data.ipynb
 
 Hors du rendu :

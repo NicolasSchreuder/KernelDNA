@@ -1,6 +1,6 @@
 from cvxopt import matrix
 from cvxopt import solvers
-solvers.options['show_progress'] = False
+solvers.options['show_progress'] = False # no verbose for solver
 
 from kernel import build_kernel_vector, build_kernel_matrix, build_kernel_matrix_from_string, build_kernel_vector_from_string, spectrum_kernel, build_spectrum_kernel_matrix, build_spectrum_kernel_vector
 
@@ -10,7 +10,8 @@ import numpy as np
 
 class KernelSVM():
 
-    def __init__(self, loss, lambda_reg, kernel, kernel_parameters, data_type='vector', threshold=1e-3, verbose = 1):
+    def __init__(self, loss, lambda_reg, kernel, kernel_parameters,
+                    data_type='vector', threshold=1e-3, verbose = 1):
         """
         Initialization of a kernel SVM
         """
@@ -21,35 +22,33 @@ class KernelSVM():
         self.kernel_matrix_is_built = False
         self.threshold = threshold # value threshold when selecting support vectors
         self.verbose = verbose
-        self.loss = loss
+        self.loss = loss # type of loss : hinge or squared hinge
 
     def verbprint(self,*args):
+        """
+        Handle verbose
+        """
         if self.verbose > 0:
             print(*args)
 
-    def verbverbprint(self,*args):
-        if self.verbose > 1:
-            print(*args)
-
     def get_w(self):
-        "Return w (weight vector) when the kernel is linear"
-        #w = sum(alpha * sv_y * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
-        #w  = sum(alpha * 1 * sv for alpha, sv, sv_y in zip(self.alpha, self.sv, self.sv_y))
-        w = sum(self.alpha*self.sv)
-        return w
+        """Return w (weight vector) when the kernel is linear and the data vectorial"""
+        if self.data_type == "vectorial":
+            return sum(self.alpha*self.sv)
+        else:
+            raise "Could not compute w, data should be vectorial"
 
     def fit(self, X, y):
         """
         Train SVM on input features X and input target y
         """
         X = np.array(X)
-        
         n = X.shape[0]
-        
-        if self.data_type=='vector': # bias
+
+        if self.data_type=='vector': # if data is vectorial, add add dimension for bias
             X = np.concatenate((X, np.ones((n,1))), axis=1)
-        
-        # Save train matrix for computing kernel evaluation later
+
+        # Store train matrix for computing kernel evaluation later
         self.X_train = X
 
         # Build the kernel matrix if it has not been built already
@@ -59,12 +58,12 @@ class KernelSVM():
                 K = build_kernel_matrix(X, self.kernel, self.kernel_parameters)
 
             elif self.data_type == 'string' :
-                if self.kernel == spectrum_kernel:
-                    K = build_spectrum_kernel_matrix(X, self.kernel_parameters)
+                K = build_spectrum_kernel_matrix(X, self.kernel_parameters)
 
             else:
                 raise "Data type not understood, should be either 'string' or 'vector' "
 
+            # Store kernel matrix so we don't have to compute it again if needed
             self.K = K
             self.kernel_matrix_is_built = True
 
@@ -72,11 +71,13 @@ class KernelSVM():
             K = self.K
 
         # Convert dual SVM problem to generic CVXOPT quadratic program (cf KernelSVM notebook)
+
         if self.loss == 'hinge': # hinge loss : max(1-yf(x), 0)
             P = 2*K.astype(np.float64)
             q = -2*y.astype(np.float64)
             G = np.concatenate([np.diag(y), -np.diag(y)], axis=0).astype(np.float64)
             h = (np.concatenate([np.ones(n), np.zeros(n)])/(2*self.lambda_reg*n)).astype(np.float64)
+
         elif self.loss == 'squared_hinge': # squared hinge loss : max(1-yf(x), 0)**2
             P = 2*(K + n*self.lambda_reg*np.eye(n)).astype(np.float64)
             q = -2*y.astype(np.float64)
@@ -96,88 +97,39 @@ class KernelSVM():
         alpha = np.array(sol['x'])
         self.alpha_old = alpha
 
-        # Compute the suppor vectors, and discard those whose lagrange multipliers is < threshold
-
+        # Find the suppor vectors, and discard those whose lagrange multipliers is < threshold
         self.sv_ind = np.where(np.abs(alpha) > self.threshold)[0].astype(int) # indices of the support vectors
         self.alpha = alpha[self.sv_ind] # alpha coefficients corresponding to support vectors
         self.sv = X[self.sv_ind][:] # support vectors
         self.sv_y = y[self.sv_ind] # target corresponding to support vectors
         self.n_support = len(self.sv_ind) # number of support vectors
 
-        # Compute bias from KKT conditions, we use the average on the support vectors (instead of one evaluation) for stability.
-        #b = 0
-        #for n in range(min(self.n_support,100)):
-        #    b += self.sv_y[n]
-        #    if self.data_type=='string':
-        #        b -= sum(alpha * self.kernel(self.sv[n], sv, self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
-        #    else:
-        #        b -= sum(alpha * self.kernel(self.sv[n], sv, **self.kernel_parameters) for alpha, sv in zip(self.alpha, self.sv))
-
-        #b = b/min(self.n_support,100)
-        #self.b = b
-        
-        w = sum(self.alpha*self.sv)
-        self.w, self.bias = w[:-1], w[-1]
-        if self.verbose:
-            self.verbprint("Numbers of support vectors : {}".format(self.n_support))
-            self.verbverbprint("Bias: {}".format(self.b))
-
-    def project(self, X_test):
-        """
-        ?
-        """
-        y_predict = np.zeros(len(X_test))
-        for i in range(len(X_test)):
-            y_predict[i] = sum(alpha * self.kernel(X_test[i], sv,**self.kernel_parameters)
-                               for alpha, sv in zip(self.alpha, self.sv))
-
-        #return y_predict + self.b
-        return y_predict
-
-    def predict(self, X_test):
-        n = X_test.shape[0]
-        X_test = np.concatenate((X_test, np.ones((n,1))), axis=1) # add one dimension
-        
-        self.verbprint("  Predicting on a BinarySVC for data X_test of shape {} ...".format(np.shape(X_test)))
-        predictions = np.sign(self.project(X_test))
-        self.verbprint("  Stats about the predictions: (0 should never be predicted, labels are in {-1,+1})\n", list((k, np.sum(predictions == k)) for k in [-1, 0, +1]))
-
-        return predictions
+        self.verbprint("Numbers of support vectors : {}".format(self.n_support))
 
     def pred(self, X_test):
- 
-        if self.data_type == 'vector':
-            n = X_test.shape[0]
+
+        if self.data_type == 'vector': # vectorial data
+            n = X_test.shape[0] # number of observations in test set
+            y_pred = np.zeros(n) # prediction vector
+
             X_test = np.concatenate((X_test, np.ones((n,1))), axis=1)
-            y_pred = np.zeros(n)
-            for i in range(n):
-                y_pred[i] = np.sign(np.dot(self.alpha_old.T,
-                                           build_kernel_vector(self.X_train, X_test[i, :],
-                                                               self.kernel, self.kernel_parameters)))
-        elif self.data_type == 'string':
+            #X_test = np.concatenate((X_test, np.ones((n,1))), axis=1) add one dimension for bias
+
+            for i in tqdm(range(n), desc='Predicting values'):
+                y_pred[i] = np.sign(sum(alpha * self.kernel(X_test[i], sv,**self.kernel_parameters)
+                               for alpha, sv in zip(self.alpha, self.sv)))
+
+        elif self.data_type == 'string': # string data
             n = len(X_test)
-            y_pred = np.zeros(n)
+            y_pred = np.zeros(n) # prediction vector
 
-            if self.kernel == spectrum_kernel:
-                for i in tqdm(range(n), desc='Predicting values'):
+            for i in tqdm(range(n), desc='Predicting values'):
                 # self.phi_x corresponds to the previously computed representation of train data
-                    y_pred[i] = np.sign(np.dot(self.alpha_old.T, build_spectrum_kernel_vector(self.X_train, X_test[i], self.kernel_parameters)))
-
-            else:
-                for i in range(n):
-                    y_pred[i] = np.sign(np.dot(self.alpha_old.T,
-                                               build_kernel_vector_from_string(self.X_train,
-                                                                               X_test[i], self.kernel, self.kernel_parameters)))
+                y_pred[i] = np.sign(np.dot(self.alpha_old.T,
+                build_spectrum_kernel_vector(self.X_train,
+                X_test[i], self.kernel_parameters)))
 
         else:
             raise "Data type not understood, should be either 'string' or 'vector'"
 
         return y_pred
-
-    def save(self, filename_alpha, filename_train):
-        np.save(filename_alpha, self.alpha)
-        np.save(filename_train, self.X_train)
-
-    def load(self, filename_alpha, filename_train):
-        self.alpha = np.load(filename_alpha)
-        self.X_train = np.load(filename_train)
